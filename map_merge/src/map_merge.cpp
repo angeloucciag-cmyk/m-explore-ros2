@@ -136,6 +136,8 @@ MapMerge::MapMerge() : Node("map_merge", rclcpp::NodeOptions()
       this->create_publisher<nav_msgs::msg::OccupancyGrid>(merged_map_topic,
       rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
 
+  tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+
   // Timers
   map_merging_timer_ = this->create_wall_timer(
     std::chrono::milliseconds((uint16_t)(1000.0 / merging_rate_)),
@@ -353,6 +355,39 @@ void MapMerge::mapMerging()
 
   rcpputils::assert_true(merged_map->info.resolution > 0.f);
   merged_map_publisher_->publish(*merged_map);
+
+  /* Publish dynamic TF transforms for each robot when known_init_poses is false */
+  if (!have_initial_poses_) {
+    std::vector<geometry_msgs::msg::Transform> pipeline_transforms = pipeline_.getTransforms();
+    if (pipeline_transforms.size() == subscriptions_size_) {
+      auto trans_it = pipeline_transforms.begin();
+      for (auto& subscription : subscriptions_) {
+        if (subscription.readonly_map && !subscription.robot_name.empty()) {
+          geometry_msgs::msg::TransformStamped tf_msg;
+          tf_msg.header.stamp = now;
+          tf_msg.header.frame_id = world_frame_;
+          tf_msg.child_frame_id = subscription.robot_name + "/map";
+          
+          const auto& q = trans_it->rotation;
+          bool is_valid = (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w) > 1e-6;
+          if (is_valid) {
+            tf_msg.transform = *trans_it;
+          } else {
+            // Fallback to identity transform to keep TF tree connected
+            tf_msg.transform.translation.x = 0.0;
+            tf_msg.transform.translation.y = 0.0;
+            tf_msg.transform.translation.z = 0.0;
+            tf_msg.transform.rotation.x = 0.0;
+            tf_msg.transform.rotation.y = 0.0;
+            tf_msg.transform.rotation.z = 0.0;
+            tf_msg.transform.rotation.w = 1.0;
+          }
+          tf_broadcaster_->sendTransform(tf_msg);
+        }
+        ++trans_it;
+      }
+    }
+  }
 }
 
 bool MapMerge::expandSlamMapsToCommonCanvas(const std::vector<nav_msgs::msg::OccupancyGrid::ConstSharedPtr>& in,

@@ -49,6 +49,8 @@
 #include <map_msgs/msg/occupancy_grid_update.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <boost/thread.hpp>
 
@@ -107,6 +109,8 @@ private:
   rclcpp::TimerBase::SharedPtr map_merging_timer_;
   rclcpp::TimerBase::SharedPtr topic_subscribing_timer_;
   rclcpp::TimerBase::SharedPtr pose_estimation_timer_;
+
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   std::string robotNameFromTopic(const std::string& topic);
   // bool isRobotMapTopic(const ros::master::TopicInfo& topic);

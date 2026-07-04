@@ -130,7 +130,7 @@ bool MergingPipeline::setTransforms(InputIt transforms_begin,
     transform.at<double>(1, 0) = b;
     transform.at<double>(0, 1) = -b;
     transform.at<double>(0, 2) = tx;
-    transform.at<double>(1, 2) = ty;
+    transform.at<double>(1, 2) = -ty;
 
     transforms_buf.emplace_back(std::move(transform));
   }
